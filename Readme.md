@@ -1,126 +1,142 @@
+<p align="center">
+  <img src="assets/banner.png" alt="BrainScan AI" width="100%">
+</p>
+
 # BrainScan AI
 
 Classification d'images IRM cérébrales avec un réseau de neurones convolutif (CNN).
-Le modèle reconnaît quatre classes : `glioma`, `meningioma`, `notumor` et `pituitary`.
+Le modèle reconnaît quatre classes :
 
-> Ce projet est pédagogique. Il aide à explorer une image, mais ne remplace jamais
-> l'avis d'un médecin et ne constitue pas un outil de diagnostic certifié.
+| Classe | Description |
+|---|---|
+| `glioma` | Gliome, tumeur des cellules gliales |
+| `meningioma` | Méningiome, tumeur des méninges |
+| `notumor` | Aucune tumeur |
+| `pituitary` | Tumeur de l'hypophyse |
 
-## Structure
+> **Attention :** projet pédagogique. Il ne remplace pas l'avis d'un médecin et ne
+> constitue pas un outil de diagnostic certifié.
+
+<p align="center">
+  <img src="assets/samples.png" alt="Exemples d'IRM par classe" width="90%">
+</p>
+
+## Données
+
+7 023 images réparties en quatre dossiers. Les extensions acceptées sont `jpg`, `jpeg`,
+`png` et `bmp` ; les images illisibles sont ignorées.
+
+<p align="center">
+  <img src="assets/class_distribution.png" alt="Répartition du dataset" width="80%">
+</p>
+
+- Redimensionnement en `224x224` et normalisation entre 0 et 1.
+- Séparation stratifiée : 70 % entraînement, 15 % validation, 15 % test.
+- Chargement par lots de 16 images avec `tf.data` (compatible GPU 4 Go).
+
+## Modèle
 
 ```text
-BrainScan/
-├── Data/                         # Images classées par dossier
-├── notebooks/01_traitement.ipynb # Explication étape par étape
-├── src/step1/
-│   ├── inspect_folders.py        # Vérification des fichiers
-│   ├── prepare_data.py           # Chargement, nettoyage et séparation
-│   ├── preprocess_images.py      # Prétraitement d'une image
-│   └── visualize_dataset.py      # Graphiques du dataset
-├── src/step2/
-│   ├── build_model.py            # Architecture CNN
-│   └── train_model.py            # Entraînement et évaluation
-├── src/predict.py                # Prédiction sur une image
-├── app.py                        # Interface Streamlit
-├── requirements.txt
-└── .gitignore
+Input (224, 224, 3)
+Conv2D 32  -> MaxPooling
+Conv2D 64  -> MaxPooling
+Conv2D 128 -> MaxPooling
+Flatten
+Dense 128 -> Dropout 0.5
+Dense 4 (softmax)
 ```
+
+Optimiseur Adam, 15 epochs maximum avec `EarlyStopping` (patience 3) et sauvegarde du
+meilleur modèle selon `val_accuracy`.
+
+## Résultats
+
+Accuracy de **94.8 %** sur le jeu de test (1 054 images).
+
+| Classe | Précision | Rappel |
+|---|:---:|:---:|
+| glioma | 92.1 % | 95.9 % |
+| meningioma | 92.6 % | 85.8 % |
+| notumor | 97.7 % | 97.7 % |
+| pituitary | 96.0 % | 98.9 % |
+
+<p align="center">
+  <img src="assets/training_curves.png" alt="Courbes d'entraînement" width="100%">
+</p>
+
+<p align="center">
+  <img src="assets/confusion_matrix.png" alt="Matrice de confusion" width="60%">
+</p>
+
+La classe `meningioma` est la plus difficile, souvent confondue avec `glioma`.
 
 ## Installation
 
-Depuis le dossier `BrainScan` :
-
 ```bash
+git clone https://github.com/eliasdeva/BrainScan.git
+cd BrainScan
 python -m venv .venv
-```
-
-Windows PowerShell :
-
-```powershell
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-## Vérifier le dataset
+Placer le dataset dans `Data/`, avec un sous-dossier par classe.
+
+## Utilisation
 
 ```bash
+# Vérifier le dataset
 python src/step1/inspect_folders.py
 python src/step1/visualize_dataset.py
-```
 
-Les extensions acceptées sont `jpg`, `jpeg`, `png` et `bmp`. Les images illisibles
-sont ignorées pendant le chargement.
-
-## Entraîner le modèle
-
-```bash
+# Entraîner le modèle
 python -m src.step2.train_model
+
+# Prédire une image
+python src/predict.py
+
+# Lancer l'interface
+streamlit run app.py
 ```
 
-Le programme crée le dossier `models/` avec :
+L'entraînement crée le dossier `models/` avec `brain_scan.keras`, `training_curves.png`,
+`confusion_matrix.png` et `history.json`.
 
-- `brain_scan.keras` : meilleur modèle sauvegardé ;
-- `training_curves.png` : évolution de l'accuracy et de la loss ;
-- `confusion_matrix.png` : erreurs par classe ;
-- `history.json` : valeurs de l'entraînement.
+<details>
+<summary><b>Utiliser le GPU sous Windows (WSL2)</b></summary>
 
-Le dataset est séparé en 70 % entraînement, 15 % validation et 15 % test.
-Les pixels sont redimensionnés en `224x224` puis normalisés entre 0 et 1.
-Les images sont chargées par lots avec `tf.data` pour éviter de remplir toute la
-mémoire RAM avant le début de l'entraînement. La taille utilisée est de 16 images
-par lot pour rester compatible avec une carte graphique de 4 Go.
+<br>
 
-## Utiliser le GPU sous Windows
-
-TensorFlow récent n'utilise pas CUDA directement sous Windows natif. Pour utiliser
-une carte NVIDIA, il faut passer par WSL2 avec Ubuntu et un pilote NVIDIA compatible.
-Le GPU doit être visible avec :
+TensorFlow récent n'utilise pas CUDA sous Windows natif. Il faut passer par WSL2 avec
+Ubuntu et un pilote NVIDIA compatible :
 
 ```bash
 wsl -d Ubuntu -- nvidia-smi
-```
-
-Dans Ubuntu WSL2, créer un environnement séparé et installer TensorFlow avec CUDA :
-
-```bash
 python3.13 -m venv ~/brainscan-venv
 ~/brainscan-venv/bin/pip install "tensorflow[and-cuda]"
 ~/brainscan-venv/bin/pip install opencv-python scikit-learn matplotlib pillow
 ```
 
-L'entraînement doit ensuite être lancé depuis la racine du projet avec le Python
-de cet environnement. Si WSL2 devient instable pendant l'entraînement, utiliser
-le mode CPU avec l'environnement Windows ou mettre à jour le pilote NVIDIA et WSL2.
+Lancer ensuite l'entraînement depuis la racine du projet avec ce Python.
 
-## Tester une image
+</details>
 
-```bash
-python src/predict.py
+## Structure
+
+```text
+BrainScan/
+├── assets/                       # Images du README
+├── Data/                         # Dataset (non versionné)
+├── models/                       # Modèle entraîné (non versionné)
+├── notebooks/01_traitement.ipynb # Explication étape par étape
+├── src/step1/                    # Inspection, préparation, visualisation
+├── src/step2/                    # Architecture et entraînement du CNN
+├── src/predict.py                # Prédiction sur une image
+├── app.py                        # Interface Streamlit
+└── requirements.txt
 ```
-
-Ou directement avec l'interface :
-
-```bash
-streamlit run app.py
-```
-
-La commande `python -v streamlit run app.py` est incorrecte : `-v` active le mode
-verbeux de Python et ne lance pas Streamlit.
-
-## Planning Jira proposé
-
-| Epic | Tickets |
-|---|---|
-| Préparer les données | Inspecter les dossiers, vérifier les extensions, prétraiter et visualiser |
-| Construire le CNN | Définir l'architecture, compiler le modèle, vérifier `summary()` |
-| Entraîner et évaluer | Séparer les données, entraîner, sauvegarder, mesurer les performances |
-| Déployer une démonstration | Ajouter `predict_image`, créer l'interface Streamlit |
-| Documenter le projet | Compléter le notebook, le README et préparer la démonstration |
 
 ## Limites
 
-La performance dépend de la qualité et de la représentativité du dataset. Une
-bonne accuracy ne suffit pas pour valider un usage clinique : il faudrait des
-tests externes, une validation médicale, une analyse des biais et une certification.
-Le modèle ne fournit pas un diagnostic médical et les prédictions doivent être
-interprétées uniquement comme une démonstration technique.
+La performance dépend de la qualité du dataset. Un usage clinique demanderait des tests
+externes, une validation médicale, une analyse des biais et une certification.
