@@ -73,7 +73,7 @@ La classe `meningioma` est la plus difficile, souvent confondue avec `glioma`.
 ## Installation
 
 ```bash
-git clone https://github.com/eliasdeva/BrainScan.git
+git clone https://github.com/doughmi-ilyas/BrainScan.git
 cd BrainScan
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
