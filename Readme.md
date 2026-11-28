@@ -70,6 +70,8 @@ Accuracy de **94.8 %** sur le jeu de test (1 054 images).
 
 La classe `meningioma` est la plus difficile, souvent confondue avec `glioma`.
 
+Voir aussi la [fiche du modèle](MODEL_CARD.md) (résultats détaillés, limites connues).
+
 ## Installation
 
 ```bash
